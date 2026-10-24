@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { music, sfx } from './audio.js?v=3';
+import { music, sfx } from './audio.js?v=4';
 
 const gsap = window.gsap;
 const $ = (s) => document.querySelector(s);
@@ -1429,10 +1429,14 @@ const SECTIONS = {
 };
 
 let sheetOpen = false;
+// full resolution for the 3D scene, or a lighter one while the dossier is on top
+const fullDpr = Math.min(devicePixelRatio, 2);
+function quality(full) { renderer.setPixelRatio(full ? fullDpr : Math.min(fullDpr, 1.25)); }
 function fillSheet(html) {
   content.querySelectorAll('video').forEach((v) => v.pause());
   content.innerHTML = html;
   paper.scrollTop = 0;
+  smooth.current = smooth.target = 0;
   gsap.from(content.querySelectorAll('.doc > *'), { y: 26, opacity: 0, duration: T(0.8), ease: 'expo.out', stagger: 0.05, delay: 0.05 });
 }
 function showSheet() {
@@ -1441,17 +1445,40 @@ function showSheet() {
   sheet.classList.add('is-open');
   sheet.setAttribute('aria-hidden', 'false');
   gsap.fromTo(sheet, portrait() ? { yPercent: 105, xPercent: 0 } : { xPercent: 110, yPercent: 0 }, { xPercent: 0, yPercent: 0, duration: T(0.9), ease: 'expo.out' });
-  gsap.fromTo(paper, { rotate: portrait() ? 0 : 2.5 }, { rotate: 0, duration: T(1.1), ease: 'expo.out' });
+  gsap.fromTo(sheet, { rotate: portrait() ? 0 : 2.5 }, { rotate: 0, duration: T(1.1), ease: 'expo.out' });
+  quality(false);
   setTimeout(() => paper.focus({ preventScroll: true }), 50);
 }
 function hideSheet() {
   if (!sheetOpen) return Promise.resolve();
   sheetOpen = false;
   sheet.setAttribute('aria-hidden', 'true');
+  quality(true);
   content.querySelectorAll('video').forEach((v) => v.pause());
   return gsap.to(sheet, { ...(portrait() ? { yPercent: 105 } : { xPercent: 110 }), duration: T(0.55), ease: 'expo.in' })
     .then(() => sheet.classList.remove('is-open'));
 }
+/* smooth, inertial wheel scrolling inside the dossier (touch keeps the native scroll) */
+const smooth = { target: 0, current: 0, running: false };
+function smoothStep() {
+  smooth.current += (smooth.target - smooth.current) * 0.16;
+  if (Math.abs(smooth.target - smooth.current) < 0.5) smooth.current = smooth.target;
+  paper.scrollTop = smooth.current;
+  if (smooth.current !== smooth.target) requestAnimationFrame(smoothStep);
+  else smooth.running = false;
+}
+paper.addEventListener('wheel', (e) => {
+  if (e.ctrlKey) return;                       // pinch-zoom gestures
+  e.preventDefault();
+  if (!smooth.running) smooth.current = smooth.target = paper.scrollTop;
+  const unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? paper.clientHeight : 1;
+  const max = paper.scrollHeight - paper.clientHeight;
+  smooth.target = Math.max(0, Math.min(max, smooth.target + e.deltaY * unit));
+  if (!smooth.running) { smooth.running = true; requestAnimationFrame(smoothStep); }
+}, { passive: false });
+// keyboard, scrollbar and touch move the page directly: keep the smoother in sync
+paper.addEventListener('scroll', () => { if (!smooth.running) smooth.current = smooth.target = paper.scrollTop; }, { passive: true });
+
 content.addEventListener('click', (e) => {
   const proj = e.target.closest('[data-proj]');
   if (proj) return openProject(+proj.dataset.proj);
@@ -1968,9 +1995,13 @@ function frame() {
   tip.style.left = ptrPx.x + 'px';
   tip.style.top = ptrPx.y + 'px';
 
-  renderer.render(scene, camera);
+  // while a dossier is being read, the scene behind is still: draw it at half rate so scrolling stays smooth
+  const camMoving = gsap.isTweening(rig.p) || gsap.isTweening(rig.t) || gsap.isTweening(rig);
+  skip = sheetOpen && !camMoving ? !skip : false;
+  if (!skip) renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
+let skip = false;
 requestAnimationFrame(frame);
 boot();
 window.portafolio = { go, unfocus, openCase, enterStack, skipIntro };
