@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { music, sfx } from './audio.js?v=4';
+import { music, sfx } from './audio.js?v=5';
 
 const gsap = window.gsap;
 const $ = (s) => document.querySelector(s);
@@ -1301,13 +1301,18 @@ function fitK() {
   const now = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;
   return Math.max(1, ref / now) * (portrait() ? 0.78 : 1);
 }
+const VIEWS_PORTRAIT = {
+  closed: { p: new V3(1.6, 9.5, 12.5), t: new V3(0.1, -0.4, -0.6) },
+  open: { p: new V3(0, 12.5, 6.6), t: new V3(0, 0.9, -0.5) },
+};
 function view(name) {
+  if (portrait() && VIEWS_PORTRAIT[name]) {
+    // phones: framings tuned for ~9:19.5, scaled for slightly wider or narrower screens
+    const v = VIEWS_PORTRAIT[name], k = THREE.MathUtils.clamp(0.462 / camera.aspect, 0.8, 1.5);
+    return { p: v.t.clone().add(v.p.clone().sub(v.t).multiplyScalar(k)), t: v.t.clone() };
+  }
   const v = VIEWS[name], k = fitK();
-  const p = v.t.clone().add(v.p.clone().sub(v.t).multiplyScalar(k));
-  if (portrait() && name === 'open') p.y += 1.5;
-  // on tall screens look down more steeply so the frame stays below the chin
-  if (portrait() && name === 'closed') { p.y += 4.5; p.x *= 0.5; }
-  return { p, t: v.t.clone() };
+  return { p: v.t.clone().add(v.p.clone().sub(v.t).multiplyScalar(k)), t: v.t.clone() };
 }
 function stackView() {
   caseG.updateWorldMatrix(true, true);
@@ -1715,6 +1720,7 @@ function presentCase() {
   presented = true;
   rig.follow = false;
   walk.z = PERSON_Z;
+  document.body.classList.add('is-lit');   // phones: the dark band over the head comes in as the camera moves
   // frames may have been skipped (skip button, background tab): settle the pose before lifting the case
   updateChar();
   if (char) char.mixer.update(0);
@@ -2005,6 +2011,10 @@ let skip = false;
 requestAnimationFrame(frame);
 boot();
 window.portafolio = { go, unfocus, openCase, enterStack, skipIntro };
+
+// two-finger zoom would magnify the page and push the 3D scene and its labels out of place
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 /* sound: starts with the first click or key (browser rule); the choice to mute is remembered */
 const soundBtn = $('#soundBtn');

@@ -21,7 +21,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; height: 100%; overflow: hidden; touch-action: manipulation; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 a { color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
@@ -38,6 +38,10 @@ body.is-hover #scene { cursor: pointer; }
   animation: grain 8s steps(10) infinite;
 }
 @keyframes grain { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-5%, 3%); } 50% { transform: translate(3%, -6%); } 75% { transform: translate(-6%, 4%); } }
+
+/* phones only: a dark band over the top of the frame keeps the face in shadow */
+.headband { position: fixed; left: 0; right: 0; top: 0; height: 30%; pointer-events: none; opacity: 0; transition: opacity 1.5s ease; background: linear-gradient(180deg, #030406 0%, #030406 45%, rgba(3, 4, 6, .85) 70%, rgba(3, 4, 6, 0) 100%); }
+@media (max-aspect-ratio: 1/1) { body.is-lit .headband { opacity: 1; } }
 
 /* ---------- intro ---------- */
 .intro { position: fixed; inset: 0; z-index: 40; background: #000; display: grid; align-items: center; justify-items: start; padding: 24px clamp(24px, 7vw, 120px); }
@@ -103,6 +107,11 @@ body.is-hover #scene { cursor: pointer; }
 .label::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(45, 212, 191, .22); }
 .label:hover, .label.is-hot { background: var(--text); color: #0b0a09; border-color: var(--text); }
 .label small { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: .04em; }
+@media (max-width: 760px) {
+  .label { font-size: 11px; padding: 5px 9px 5px 7px; gap: 6px; }
+  .label::before { width: 6px; height: 6px; box-shadow: 0 0 0 2px rgba(45, 212, 191, .22); }
+  .label small { display: none; }
+}
 .label:hover small, .label.is-hot small { color: #57514a; }
 
 .tip { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; padding: 7px 12px; border-radius: 8px; background: var(--text); color: #0b0a09; font-size: 12.5px; font-weight: 600; white-space: nowrap; opacity: 0; transform: translate(16px, 18px); transition: opacity .2s; }
